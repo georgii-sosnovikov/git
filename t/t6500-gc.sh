@@ -396,6 +396,45 @@ test_expect_success 'background auto gc respects lock for all operations' '
 	test_cmp expect actual
 '
 
+test_expect_success '--detach overrides gc.autoDetach=false' '
+	test_when_finished "rm -rf repo" &&
+	git init repo &&
+	(
+		cd repo &&
+
+		# Prepare the repository such that git-gc(1) ends up repacking.
+		test_commit "$(test_oid blob17_1)" &&
+		test_commit "$(test_oid blob17_2)" &&
+		git config gc.autodetach false &&
+		git config gc.auto 2 &&
+
+		cat >expect <<-EOF &&
+		Auto packing the repository in background for optimum performance.
+		See "git help gc" for manual housekeeping.
+		EOF
+		GIT_PROGRESS_DELAY=0 git gc --auto --detach 2>actual &&
+		test_cmp expect actual
+	)
+'
+
+test_expect_success '--no-detach overrides gc.autoDetach=true' '
+	test_when_finished "rm -rf repo" &&
+	git init repo &&
+	(
+		cd repo &&
+
+		# Prepare the repository such that git-gc(1) ends up repacking.
+		test_commit "$(test_oid blob17_1)" &&
+		test_commit "$(test_oid blob17_2)" &&
+		git config gc.autodetach true &&
+		git config gc.auto 2 &&
+
+		GIT_PROGRESS_DELAY=0 git gc --auto --no-detach 2>output &&
+		test_grep "Auto packing the repository for optimum performance." output &&
+		test_grep "Collecting referenced commits: 2, done." output
+	)
+'
+
 # DO NOT leave a detached auto gc process running near the end of the
 # test script: it can run long enough in the background to racily
 # interfere with the cleanup in 'test_done'.
